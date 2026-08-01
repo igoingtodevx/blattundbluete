@@ -1602,6 +1602,51 @@ address {
   border-color: rgb(217 121 80 / 38%);
 }
 
+.chat-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.chat-choices button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 650;
+  padding: 7px 10px;
+  transition: border-color 180ms ease, background 180ms ease, color 180ms ease, transform 180ms ease;
+}
+
+.chat-choices button:hover:not(:disabled) {
+  border-color: var(--sage-dark);
+  transform: translateY(-1px);
+}
+
+.chat-choices button.is-selected {
+  background: color-mix(in srgb, var(--sage) 38%, white);
+  border-color: var(--sage-dark);
+  color: var(--sage-dark);
+}
+
+.chat-choices button.is-selected span:last-child {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--sage-dark);
+  color: white;
+  font-size: 0.68rem;
+}
+
 .chat-loading {
   display: flex;
   align-items: center;

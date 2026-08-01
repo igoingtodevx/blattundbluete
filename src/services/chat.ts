@@ -1,7 +1,27 @@
 import { products } from "../data/products";
 import { siteConfig } from "../config/site";
 import { getPriceLabel } from "../utils/money";
-import type { ChatResponse } from "../types";
+import type { ChatPreferences, ChatResponse } from "../types";
+
+export interface ChatService {
+  ask(question: string, preferences?: ChatPreferences): Promise<ChatResponse>;
+}
+
+export class ApiChatService implements ChatService {
+  async ask(question: string, preferences: ChatPreferences = {}): Promise<ChatResponse> {
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question, preferences })
+    });
+
+    if (!response.ok) {
+      throw new Error("Chat API konnte nicht antworten.");
+    }
+
+    return (await response.json()) as ChatResponse;
+  }
+}
 
 const available = products.filter(
   (product) => product.stock > 0 && product.status !== "soldout"
@@ -16,8 +36,9 @@ const suggestions = (ids: string[]) =>
       label: `${product!.name} · ${getPriceLabel(product!.price, product!.priceMax)}`
     }));
 
-export class DemoChatService {
-  async ask(question: string): Promise<ChatResponse> {
+export class DemoChatService implements ChatService {
+  async ask(question: string, preferences?: ChatPreferences): Promise<ChatResponse> {
+    void preferences;
     await new Promise((resolve) => globalThis.setTimeout(resolve, 520));
 
     const normalized = question.toLocaleLowerCase("de-DE");

@@ -1,4 +1,4 @@
-const env = import.meta.env;
+const env = (import.meta.env ?? {}) as Record<string, string | undefined>;
 
 export const siteConfig = {
   name: "Blatt & Blüte",

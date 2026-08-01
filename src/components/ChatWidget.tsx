@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { DemoChatService } from "../services/chat";
-import type { ChatResponse, PageId } from "../types";
+import { ApiChatService, DemoChatService } from "../services/chat";
+import type { ChatChoice, ChatPreferences, ChatResponse, PageId } from "../types";
 import { Icon } from "./Icons";
 
 interface ChatWidgetProps {
@@ -16,25 +16,27 @@ interface Message {
 }
 
 const quickQuestions = [
+  "Ich suche einen Strauß.",
   "Habt ihr noch Rosen?",
-  "Was ist gerade saisonal?",
-  "Ich brauche spontan einen kleinen Strauß.",
-  "Kann ich etwas reservieren?"
+  "Wo kann ich parken?",
+  "Ich brauche spontan einen kleinen Strauß."
 ];
 
-const chatService = new DemoChatService();
+const apiChatService = new ApiChatService();
+const demoChatService = new DemoChatService();
 
 export function ChatWidget({ onNavigate, onProduct }: ChatWidgetProps) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [preferences, setPreferences] = useState<ChatPreferences>({});
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
       role: "assistant",
       text:
-        "Hallo! Ich helfe mit dem Demo-Sortiment, Pflegefragen und der Vorbereitung einer Anfrage. Bestände können sich im Laden kurzfristig ändern."
+        "Hallo! Was darf ich heute für Sie blumig machen? Ich helfe Ihnen mit Sträußen, Website-Bestand, Pflege, Anfahrt und einer passenden Vorbestellung."
     }
   ]);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -48,7 +50,7 @@ export function ChatWidget({ onNavigate, onProduct }: ChatWidgetProps) {
     }
   }, [messages, open, loading]);
 
-  const send = async (question: string) => {
+  const send = async (question: string, nextPreferences = preferences) => {
     const clean = question.trim();
     if (!clean || loading) return;
 
@@ -61,7 +63,12 @@ export function ChatWidget({ onNavigate, onProduct }: ChatWidgetProps) {
     setLoading(true);
 
     try {
-      const response = await chatService.ask(clean);
+      let response: ChatResponse;
+      try {
+        response = await apiChatService.ask(clean, nextPreferences);
+      } catch {
+        response = await demoChatService.ask(clean, nextPreferences);
+      }
       setMessages((current) => [
         ...current,
         {
@@ -78,6 +85,12 @@ export function ChatWidget({ onNavigate, onProduct }: ChatWidgetProps) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const selectChoice = (choice: ChatChoice) => {
+    const nextPreferences = { ...preferences, [choice.key]: choice.value };
+    setPreferences(nextPreferences);
+    void send(choice.label, nextPreferences);
   };
 
   const onSubmit = (event: React.FormEvent) => {
@@ -110,7 +123,7 @@ export function ChatWidget({ onNavigate, onProduct }: ChatWidgetProps) {
             </div>
             <div>
               <strong>Blumen-Chat</strong>
-              <span>Regelbasiertes Demo · keine Live-Auskunft</span>
+              <span>Persönliche Beratung · Website-Bestand auf Anfrage</span>
             </div>
             <button
               type="button"
@@ -154,6 +167,25 @@ export function ChatWidget({ onNavigate, onProduct }: ChatWidgetProps) {
                     {message.response.action.label}
                     <Icon name="arrow" />
                   </button>
+                )}
+                {message.response?.choices && message.response.choices.length > 0 && (
+                  <div className="chat-choices" aria-label="Beratung auswählen">
+                    {message.response.choices.map((choice) => {
+                      const selected = preferences[choice.key] === choice.value;
+                      return (
+                        <button
+                          className={selected ? "is-selected" : ""}
+                          type="button"
+                          key={`${choice.key}-${choice.value}`}
+                          onClick={() => selectChoice(choice)}
+                          disabled={loading}
+                        >
+                          <span>{choice.label}</span>
+                          {selected && <span aria-hidden="true">✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             ))}

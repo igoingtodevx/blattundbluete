@@ -42,9 +42,26 @@ export interface ChatProductSuggestion {
   label: string;
 }
 
+export type ChatChoiceKey = "occasion" | "budget" | "style" | "color" | "pickup";
+
+export interface ChatChoice {
+  key: ChatChoiceKey;
+  value: string;
+  label: string;
+}
+
+export interface ChatPreferences {
+  occasion?: string;
+  budget?: string;
+  style?: string;
+  color?: string;
+  pickup?: string;
+}
+
 export interface ChatResponse {
   text: string;
   suggestions?: ChatProductSuggestion[];
+  choices?: ChatChoice[];
   action?: {
     label: string;
     page: PageId;

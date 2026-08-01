@@ -154,8 +154,8 @@ export function HomePage({ onNavigate, onProduct }: HomePageProps) {
           </span>
           <h2>Eine Frage zwischendurch?</h2>
           <p>
-            Der Demo-Chat hilft bei Größen, Anlässen, Pflege und der
-            Vorbereitung einer Anfrage – ohne Verfügbarkeiten zu erfinden.
+            Der Blumen-Chat hilft bei Website-Bestand, Größen, Anlässen,
+            Pflege und einer passenden Vorbestellung – ehrlich und persönlich.
           </p>
           <span className="chat-hint">Unten rechts öffnen</span>
         </article>

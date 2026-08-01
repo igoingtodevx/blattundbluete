@@ -9,7 +9,7 @@ Eine mobile-first React-/TypeScript-Website als funktionsfähiges Grundgerüst f
 - sechs Hauptbereiche: Start, Blumen & Sträuße, Restposten, Blumenwissen, Über Uns und Vorbestellen,
 - exakt 20 Demo-Produkte: 16 Sträuße und 4 Holzdeko-Artikel,
 - Suche, Filter, Sortierung, Bestandsstatus und Produktdetails,
-- regelbasierter deutscher Demo-Chat mit bestandssensiblen Antworten,
+- Gemini-gestützter Blumen-Chat mit Website-Wissen, Produktvorschlägen, Auswahlchips und lokalem Fallback,
 - Restposten-Logik ab 16:30 Uhr in `Europe/Berlin` mit exakt 50 %,
 - FAQ und Pflegewissen,
 - validierte Vorbestellungs-/Reservierungsanfrage mit 2,90 € Pfandhinweis,
@@ -47,12 +47,22 @@ pnpm dlx vercel@58.4.0 deploy --prod
 
 Die vorhandenen Standardwerte für Adresse, Telefon, Google, Instagram und Facebook wurden aus den bereitgestellten Links bzw. aktuellen öffentlichen Unternehmenseinträgen abgeleitet. Öffnungszeiten und Kontaktdaten bleiben zentral in `src/config/site.ts` austauschbar.
 
+### Gemini-Chat aktivieren
+
+Der Chat ist für Gemini via Vertex AI Express Mode vorbereitet. Er bleibt ohne Zugangsdaten als lokaler Fallback nutzbar. Für den echten KI-Modus:
+
+1. Im Google-Cloud-Projekt `project-254bd332-29e4-4496-aca` für das Dienstkonto `Blatt&Bluete` einen privaten JSON-Schlüssel erstellen und dem Dienstkonto die Rolle **Vertex AI User** geben.
+2. In den Vercel-Projektvariablen `GOOGLE_SERVICE_ACCOUNT_JSON` mit dem kompletten Inhalt dieser JSON-Datei anlegen. Nie mit `VITE_` beginnen und niemals in Git einchecken.
+3. Neu nach Produktion deployen.
+
+Google Cloud schützt Vertex AI zusätzlich mit der Ausgabenobergrenze **„Blatt & Blüte Bot – 10 € Monatslimit“**. Die Obergrenze ist auf 9 € gesetzt, damit aufgrund möglicher Abrechnungsverzögerungen das gewünschte 10-€-Limit nicht überschritten wird. Sie pausiert Vertex AI für dieses Projekt nach Erreichen der Grenze.
+
 ## Demo-Grenzen
 
 - Produkte, Preise und Bestände sind Demo-Daten.
 - Eine Formularübermittlung wird geprüft, aber nicht gespeichert oder versendet.
 - Es gibt keine Online-Zahlung.
-- Der Chat ist regelbasiert und keine KI-/Live-Auskunft.
+- Ohne `GOOGLE_SERVICE_ACCOUNT_JSON` arbeitet der Chat mit einem lokalen Fallback. Mit dem Dienstkonto nutzt er Gemini und kennt die hinterlegten Website-Fakten, jedoch keine echte POS-Synchronisierung.
 - Google-Bewertungen werden nur extern verlinkt.
 - Eine Sprachverarbeitung ist nicht angeschlossen; es gibt keine Aufnahmefunktion.
 - Eine Kassen-/POS-Synchronisierung ist vorbereitet, aber nicht live.

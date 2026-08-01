@@ -1,4 +1,4 @@
-import type { Product } from "../types";
+import type { Product } from "../types.js";
 
 const updatedAt = "2026-07-31T02:00:00.000Z";
 
