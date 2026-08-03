@@ -218,7 +218,7 @@ export async function callBedrock(
       body: JSON.stringify({
         system: [{ text: systemPrompt }],
         messages: buildBedrockMessages(history, question, preferences, context),
-        inferenceConfig: { maxTokens: 700, temperature: 0.55, topP: 0.95 }
+        inferenceConfig: { maxTokens: 700, temperature: 0.55 }
       })
     },
     config.timeoutMs,
@@ -407,7 +407,6 @@ async function generateWithProviders(
       return { raw: await callBedrock(question, preferences, history, context, config, systemPrompt), mode: "live" as const };
     } catch (error) {
       lastError = error instanceof ProviderError ? error : new ProviderError("bedrock", undefined, "unknown");
-      console.error("[chat-debug] bedrock attempt failed", JSON.stringify(lastError));
     }
   }
   if (config.openAiApiKey) {
