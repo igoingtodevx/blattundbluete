@@ -16,9 +16,10 @@ import {
 interface SalePageProps {
   onNavigate: (page: PageId) => void;
   onProduct: (product: Product) => void;
+  onReserve: (product: Product) => void;
 }
 
-export function SalePage({ onNavigate, onProduct }: SalePageProps) {
+export function SalePage({ onNavigate, onProduct, onReserve }: SalePageProps) {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -31,11 +32,6 @@ export function SalePage({ onNavigate, onProduct }: SalePageProps) {
     () => products.filter(isSaleProduct).slice(0, 6),
     []
   );
-
-  const reserve = (product: Product) => {
-    sessionStorage.setItem("bb-selected-product", product.id);
-    onNavigate("reservation");
-  };
 
   return (
     <div className="sale-page page-gutter">
@@ -149,7 +145,7 @@ export function SalePage({ onNavigate, onProduct }: SalePageProps) {
                 featured={index === 0}
                 salePrice={getSalePrice(product.price)}
                 onOpen={onProduct}
-                onReserve={reserve}
+                onReserve={onReserve}
               />
             ))}
           </div>

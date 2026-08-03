@@ -18,6 +18,7 @@ import type {
 interface CataloguePageProps {
   onNavigate: (page: PageId) => void;
   onProduct: (product: Product) => void;
+  onReserve: (product: Product) => void;
 }
 
 type SortOption = "recommended" | "price-asc" | "price-desc" | "name";
@@ -27,7 +28,8 @@ type StatusFilter = "all" | ProductStatus;
 
 export function CataloguePage({
   onNavigate,
-  onProduct
+  onProduct,
+  onReserve
 }: CataloguePageProps) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<CategoryFilter>("all");
@@ -90,11 +92,6 @@ export function CataloguePage({
     setStatus("all");
     setPrice("all");
     setSort("recommended");
-  };
-
-  const reserve = (product: Product) => {
-    sessionStorage.setItem("bb-selected-product", product.id);
-    onNavigate("reservation");
   };
 
   return (
@@ -282,7 +279,7 @@ export function CataloguePage({
                   product={product}
                   featured={index === 0 && filteredProducts.length > 4}
                   onOpen={onProduct}
-                  onReserve={reserve}
+                  onReserve={onReserve}
                 />
               ))}
             </div>

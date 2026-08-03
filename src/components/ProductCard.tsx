@@ -18,10 +18,10 @@ const sizeLabels: Record<Product["size"], string> = {
 };
 
 const statusLabels: Record<Product["status"], string> = {
-  available: "Verfügbar",
-  low: "Knapp verfügbar",
-  soldout: "Ausverkauft",
-  sale: "Restposten"
+  available: "Demo: Beispiel verfügbar",
+  low: "Demo: Beispiel knapp",
+  soldout: "Demo: nicht verfügbar",
+  sale: "Demo: Restposten-Beispiel"
 };
 
 export function ProductCard({
@@ -67,7 +67,7 @@ export function ProductCard({
           >
             <i />
             {unavailable
-              ? statusLabels.soldout
+              ? "Demo: nicht verfügbar"
               : statusLabels[product.status]}
           </span>
         </div>

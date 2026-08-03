@@ -95,12 +95,12 @@ export function ProductModal({
             <div>
               <strong>
                 {unavailable
-                  ? "Im Demo-Bestand ausverkauft"
-                  : `${product.stock} ${product.unit} im Demo-Bestand`}
+                  ? "Im Demo-Sortiment nicht verfügbar"
+                  : "Beispielauswahl – kein Live-Bestand"}
               </strong>
               <p>
-                Bestände können sich im Laden kurzfristig ändern. Bei einem
-                bestimmten Wunsch rufen Sie uns am besten kurz an.
+                Preise und Auswahl sind Demo-Richtwerte. Der aktuelle Ladenbestand
+                wird bei einer persönlichen Bestätigung geprüft.
               </p>
             </div>
           </div>
