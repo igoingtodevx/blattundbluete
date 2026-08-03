@@ -26,7 +26,7 @@ interface ChatWidgetProps {
 }
 
 const quickQuestions = [
-  "Ein Strauß für meine Mutter — sie wird 60",
+  "Ein Strauß für meine Mutter, sie wird 60",
   "Ich möchte mich bei jemandem bedanken",
   "Etwas für jemanden der gerade traurig ist"
 ];
@@ -44,13 +44,13 @@ function getInitialMessage(): ChatMessage {
 
   let text: string;
   if (h >= 6 && h < 11) {
-    text = "Guten Morgen. Für wen suchst du etwas — und zu welchem Anlass? Ich helfe dir, das Richtige zu finden.";
+    text = "Guten Morgen. Für wen suchst du etwas?";
   } else if (h >= 11 && h < 14) {
-    text = "Hallo. Beschreib mir kurz, für wen der Strauß ist — ich schaue, was gerade passt.";
+    text = "Hallo. Für wen soll es sein?";
   } else if (h >= 14 && h < 19) {
-    text = "Schön, dass du da bist. Für wen suchst du etwas — und was ist der Anlass?";
+    text = "Schön, dass du vorbeischaust. Für wen suchst du etwas?";
   } else {
-    text = "Hallo. Planst du etwas für die nächsten Tage? Sag mir für wen — ich finde etwas Passendes.";
+    text = "Hallo. Planst du etwas für die nächsten Tage? Sag mir für wen.";
   }
 
   return {
@@ -100,11 +100,6 @@ const actionList = (response: ChatResponse): ChatAction[] => {
   return all.filter(
     (action, index) => all.findIndex((candidate) => actionKey(candidate) === actionKey(action)) === index
   );
-};
-
-const statusLabel = (response?: ChatResponse) => {
-  if (response?.mode === "live") return "KI-Beratung";
-  return "Demo-Antwort";
 };
 
 export function ChatWidget({
@@ -186,7 +181,7 @@ export function ChatWidget({
       ]);
     } catch {
       setError(
-        "Kurze Unterbrechung — versuch es nochmal oder ruf uns kurz an."
+        "Kurze Unterbrechung. Versuch es nochmal oder ruf uns kurz an."
       );
     } finally {
       setLoading(false);
@@ -232,7 +227,6 @@ export function ChatWidget({
   const latestResponse = [...messages]
     .reverse()
     .find((message) => message.role === "assistant" && message.response)?.response;
-  const inventoryLabel = latestResponse?.inventoryMode === "live" ? "Live-Sortiment" : "Beispielsortiment";
 
   return (
     <>
@@ -259,11 +253,9 @@ export function ChatWidget({
               <Icon name="flower" />
             </div>
             <div>
-              <strong>Persönliche Blumenberatung</strong>
+              <strong>Blumenberatung</strong>
               <div className="chat-status-line">
                 <span className={`chat-status-dot ${latestResponse?.mode === "live" ? "is-live" : ""}`} />
-                <span>{statusLabel(latestResponse)}</span>
-                <span className="chat-inventory-pill">{inventoryLabel}</span>
               </div>
             </div>
             <button
@@ -282,12 +274,7 @@ export function ChatWidget({
                 className={`chat-message chat-message-${message.role}`}
                 key={message.id}
               >
-                {message.role === "assistant" && message.response && (
-                  <div className="chat-message-meta">
-                    <span>{statusLabel(message.response)}</span>
-                    <span>{message.response.inventoryMode === "live" ? "Live-Sortiment" : "Beispielsortiment"}</span>
-                  </div>
-                )}
+                {message.role === "assistant" && message.response && null}
                 <p>{message.text}</p>
                 {message.response?.suggestions && message.response.suggestions.length > 0 && (
                   <div className="chat-product-suggestions" aria-label="Meine Empfehlungen">
@@ -361,7 +348,7 @@ export function ChatWidget({
                 <span />
                 <span />
                 <span />
-                <em>Einen Moment — ich schaue, was passt …</em>
+                <em>Einen Moment, ich schaue was passt …</em>
               </div>
             )}
             {error && (
