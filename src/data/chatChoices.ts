@@ -28,9 +28,9 @@ const choiceSets: Record<ChatChoiceKey, ChatChoice[]> = {
     { key: "color", value: "frei", label: "Überrasch mich" }
   ],
   pickup: [
-    { key: "pickup", value: "heute", label: "Heute abholen" },
-    { key: "pickup", value: "morgen", label: "Für morgen" },
-    { key: "pickup", value: "spaeter", label: "Für später planen" }
+    { key: "pickup", value: "heute", label: "Heute noch" },
+    { key: "pickup", value: "morgen", label: "Morgen" },
+    { key: "pickup", value: "spaeter", label: "Noch offen" }
   ]
 };
 
