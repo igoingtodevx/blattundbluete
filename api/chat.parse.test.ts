@@ -18,7 +18,8 @@ describe("parseModelResponse", () => {
       "soft-greeting",
       "little-sun"
     ]);
-    expect(result.action?.page).toBe("products");
+    const action = result.action;
+    expect(action?.type === "navigate" ? action.page : undefined).toBe("products");
     expect(result.choices?.length).toBeGreaterThan(0);
   });
 
@@ -108,5 +109,50 @@ describe("parseModelResponse", () => {
     const result = parseModelResponse(raw);
 
     expect(result.text).toBe("Saubere Antwort");
+  });
+
+  it("validates captured preferences and canonicalizes a call action", () => {
+    const result = parseModelResponse(
+      JSON.stringify({
+        text: "Ich helfe Ihnen gern.",
+        suggestionIds: [],
+        action: { type: "call", label: "Anrufen", href: "https://example.invalid" },
+        capturedPreferences: {
+          budgetMax: "35",
+          color: "rosa",
+          pickupDate: "2026-08-04",
+          pickupTime: "11:00",
+          unknown: "discard me"
+        },
+        nextStep: null
+      })
+    );
+
+    expect(result.capturedPreferences).toEqual({
+      budgetMax: 35,
+      color: "rosa",
+      pickupDate: "2026-08-04",
+      pickupTime: "11:00"
+    });
+    expect(result.action).toEqual({
+      type: "call",
+      label: "Anrufen",
+      href: "tel:+492734433990"
+    });
+    expect(result.mode).toBe("live");
+    expect(result.inventoryMode).toBe("demo");
+  });
+
+  it("deduplicates and removes sold-out suggestions during parsing", () => {
+    const result = parseModelResponse(
+      JSON.stringify({
+        text: "Beispiele.",
+        suggestionIds: ["soft-greeting", "soft-greeting", "color-confetti", "wood-tray"],
+        action: null,
+        nextStep: null
+      })
+    );
+
+    expect(result.suggestions?.map((entry) => entry.productId)).toEqual(["soft-greeting"]);
   });
 });
