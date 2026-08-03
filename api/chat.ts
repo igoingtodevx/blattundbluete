@@ -187,14 +187,9 @@ export function parseModelResponse(raw: string, depth = 0): ChatResponse {
     }
   }
 
-  // Manche Modelle schachteln das eigentliche JSON in "text" (doppeltes JSON).
-  // Rekursiv auflösen, max. 2 Ebenen.
-  if (
-    depth < 2 &&
-    parsed &&
-    typeof parsed.text === "string" &&
-    parsed.text.trim().startsWith("{")
-  ) {
+  // Manche Modelle schachteln das eigentliche JSON in "text" (doppeltes JSON) —
+  // als String, als doppelt-escaped String oder als Objekt. Rekursiv auflösen, max. 2 Ebenen.
+  if (depth < 2 && parsed) {
     const tryInner = (source: string): ChatResponse | null => {
       try {
         const inner = JSON.parse(source.trim()) as { text?: unknown };
@@ -206,16 +201,22 @@ export function parseModelResponse(raw: string, depth = 0): ChatResponse {
       }
       return null;
     };
-    const direct = tryInner(parsed.text);
-    if (direct) return direct;
-    // Doppelt-escaped (Modell liefert "{\\n  \\\"text\\\": ...}") → einmal auflösen und erneut versuchen
-    const unescaped = parsed.text
-      .replace(/\\\\/g, "\\")
-      .replace(/\\n/g, "\n")
-      .replace(/\\"/g, '"');
-    if (unescaped !== parsed.text) {
-      const retry = tryInner(unescaped);
-      if (retry) return retry;
+    if (typeof parsed.text === "string" && parsed.text.trim().startsWith("{")) {
+      const direct = tryInner(parsed.text);
+      if (direct) return direct;
+      // Doppelt-escaped (Modell liefert "{\\n  \\\"text\\\": ...}") → einmal auflösen und erneut versuchen
+      const unescaped = parsed.text
+        .replace(/\\\\/g, "\\")
+        .replace(/\\n/g, "\n")
+        .replace(/\\"/g, '"');
+      if (unescaped !== parsed.text) {
+        const retry = tryInner(unescaped);
+        if (retry) return retry;
+      }
+    } else if (typeof parsed.text === "object" && parsed.text !== null) {
+      // text ist ein JSON-Objekt → als inneres JSON behandeln
+      const asObject = tryInner(JSON.stringify(parsed.text));
+      if (asObject) return asObject;
     }
   }
 
@@ -223,6 +224,17 @@ export function parseModelResponse(raw: string, depth = 0): ChatResponse {
   // damit der Chat nie an einem Parsing-Fehler stirbt.
   if (!parsed || typeof parsed.text !== "string" || !parsed.text.trim()) {
     const plain = cleaned.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+    // plain könnte selbst ein JSON-Objekt-String sein → einmal versuchen zu entpacken
+    if (plain.startsWith("{") && depth < 2) {
+      try {
+        const inner = JSON.parse(plain) as { text?: unknown };
+        if (inner && typeof inner.text === "string" && inner.text.trim()) {
+          return parseModelResponse(plain, depth + 1);
+        }
+      } catch {
+        // kein JSON → roh zurückgeben
+      }
+    }
     return {
       text:
         cleanText(plain) ||

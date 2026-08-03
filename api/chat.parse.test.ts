@@ -87,4 +87,26 @@ describe("parseModelResponse", () => {
 
     expect(result.text).toBe("Der Zarte Gruß ist schön, und das hier auch.");
   });
+
+  it("entpackt text als JSON-Objekt (nicht String)", () => {
+    const raw = JSON.stringify({
+      text: {
+        text: "Ein Strauß mit Rosen wäre schön.",
+        suggestionIds: ["soft-greeting"],
+        action: null,
+        nextStep: null
+      }
+    });
+    const result = parseModelResponse(raw);
+
+    expect(result.text).toBe("Ein Strauß mit Rosen wäre schön.");
+    expect(result.suggestions?.[0]?.productId).toBe("soft-greeting");
+  });
+
+  it("entpackt JSON, wenn der äußere Parse fehlschlug (Fallback-Branch)", () => {
+    const raw = `Einleitungstext {\n  "text": "Saubere Antwort",\n  "suggestionIds": [],\n  "action": null,\n  "nextStep": null\n} Ende`;
+    const result = parseModelResponse(raw);
+
+    expect(result.text).toBe("Saubere Antwort");
+  });
 });
