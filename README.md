@@ -47,9 +47,19 @@ pnpm dlx vercel@58.4.0 deploy --prod
 
 Die vorhandenen Standardwerte für Adresse, Telefon, Google, Instagram und Facebook wurden aus den bereitgestellten Links bzw. aktuellen öffentlichen Unternehmenseinträgen abgeleitet. Öffnungszeiten und Kontaktdaten bleiben zentral in `src/config/site.ts` austauschbar.
 
-### Gemini-Chat aktivieren
+### Chat-LLM aktivieren
 
-Der Chat ist für Gemini via Vertex AI Express Mode vorbereitet. Er bleibt ohne Zugangsdaten als lokaler Fallback nutzbar. Für den echten KI-Modus:
+Der Chat nutzt ein OpenAI-kompatibles LLM-Backend (primär) mit Gemini via Vertex AI als optionalem Fallback. Ohne Zugangsdaten arbeitet der Client mit einem lokalen Demo-Fallback.
+
+**Primär (OpenCode Go / Nous / DeepSeek / OpenRouter — jeder `/chat/completions`-Endpoint):**
+
+1. In den Vercel-Projektvariablen `CHAT_LLM_API_KEY` mit einem gültigen API-Key anlegen. Nie mit `VITE_` beginnen und niemals in Git einchecken.
+2. Optional `CHAT_LLM_BASE_URL` (Standard `https://opencode.ai/zen/go/v1`) und `CHAT_LLM_MODEL` (Standard `minimax-m2.7`) setzen.
+3. Neu nach Produktion deployen.
+
+Der Chat ist mehrstufig (Multi-Turn): Der Client schickt die letzten 10 Nachrichten mit, damit die Beratung Anlass, Budget und Vorlieben über mehrere Turns behält. Beratungs-Choices (Anlass, Budget, Stil, Farbe, Abholung) werden als Kontext mitgeschickt.
+
+**Fallback (Gemini via Vertex AI Express Mode), nur wenn das primäre LLM nicht antwortet:**
 
 1. Im Google-Cloud-Projekt `project-254bd332-29e4-4496-aca` für das Dienstkonto `Blatt&Bluete` einen privaten JSON-Schlüssel erstellen und dem Dienstkonto die Rolle **Vertex AI User** geben.
 2. In den Vercel-Projektvariablen `GOOGLE_SERVICE_ACCOUNT_JSON` mit dem kompletten Inhalt dieser JSON-Datei anlegen. Nie mit `VITE_` beginnen und niemals in Git einchecken.

@@ -1,18 +1,26 @@
 import { products } from "../data/products";
 import { siteConfig } from "../config/site";
 import { getPriceLabel } from "../utils/money";
-import type { ChatPreferences, ChatResponse } from "../types";
+import type { ChatHistoryMessage, ChatPreferences, ChatResponse } from "../types";
 
 export interface ChatService {
-  ask(question: string, preferences?: ChatPreferences): Promise<ChatResponse>;
+  ask(
+    question: string,
+    preferences?: ChatPreferences,
+    history?: ChatHistoryMessage[]
+  ): Promise<ChatResponse>;
 }
 
 export class ApiChatService implements ChatService {
-  async ask(question: string, preferences: ChatPreferences = {}): Promise<ChatResponse> {
+  async ask(
+    question: string,
+    preferences: ChatPreferences = {},
+    history: ChatHistoryMessage[] = []
+  ): Promise<ChatResponse> {
     const response = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question, preferences })
+      body: JSON.stringify({ question, preferences, history })
     });
 
     if (!response.ok) {
@@ -36,12 +44,56 @@ const suggestions = (ids: string[]) =>
       label: `${product!.name} · ${getPriceLabel(product!.price, product!.priceMax)}`
     }));
 
+const pick = <T,>(items: T[], count: number): T[] => items.slice(0, count);
+
+const byOccasion = (preferences?: ChatPreferences) => {
+  if (!preferences?.occasion) return null;
+  const occasion = preferences.occasion.toLocaleLowerCase("de-DE");
+  return pick(
+    available.filter((product) =>
+      product.occasions.some((entry) =>
+        entry.toLocaleLowerCase("de-DE").includes(occasion)
+      )
+    ),
+    3
+  );
+};
+
+const byBudget = (preferences?: ChatPreferences) => {
+  if (!preferences?.budget) return null;
+  const budget = preferences.budget;
+  const max = budget === "bis-15" ? 15 : budget === "16-25" ? 25 : budget === "26-40" ? 40 : budget === "41-60" ? 60 : Infinity;
+  return pick(
+    available.filter((product) => (product.priceMax ?? product.price) <= max),
+    3
+  );
+};
+
 export class DemoChatService implements ChatService {
-  async ask(question: string, preferences?: ChatPreferences): Promise<ChatResponse> {
-    void preferences;
+  async ask(
+    question: string,
+    preferences?: ChatPreferences,
+    history?: ChatHistoryMessage[]
+  ): Promise<ChatResponse> {
+    void history;
     await new Promise((resolve) => globalThis.setTimeout(resolve, 520));
 
     const normalized = question.toLocaleLowerCase("de-DE");
+    const lastAssistant = history
+      ? [...history].reverse().find((entry) => entry.role === "assistant")?.text
+      : undefined;
+
+    // Kontext: Nutzer antwortet auf eine Beratungsfrage (z.B. Anlass gewählt)
+    const occasionProducts = byOccasion(preferences);
+    if (preferences?.occasion && /ja|passt|gerne|ok|gern|super/.test(normalized)) {
+      const matches = occasionProducts ?? byBudget(preferences) ?? [];
+      if (matches.length > 0) {
+        return {
+          text: `Für ${preferences.occasion} habe ich im Demo-Sortiment diese passenden Vorschläge. Der verbindliche Bestand wird kurz vor Ihrem Besuch im Laden bestätigt.`,
+          suggestions: suggestions(matches.map((product) => product.id))
+        };
+      }
+    }
 
     if (/rose|rosen/.test(normalized)) {
       const roseProducts = available
@@ -126,6 +178,21 @@ export class DemoChatService implements ChatService {
         text:
           "Geeignete Demo-Produkte werden ab 16:30 Uhr in der Zeitzone Europe/Berlin mit 50 % angezeigt. Ob ein konkreter Strauß im Laden wirklich verfügbar ist, muss weiterhin geprüft werden.",
         action: { label: "Restposten ansehen", page: "sale" }
+      };
+    }
+
+    // Kontext: Wenn ein Anlass gewählt wurde, aber die Frage unklar ist, Vorschläge zum Anlass
+    if (occasionProducts && occasionProducts.length > 0) {
+      return {
+        text: `Für ${preferences!.occasion} passen im Demo-Sortiment zum Beispiel diese Sträuße. Der tatsächliche Ladenbestand kann sich kurzfristig ändern – für eine verbindliche Auswahl bitte kurz anrufen.`,
+        suggestions: suggestions(occasionProducts.map((product) => product.id))
+      };
+    }
+
+    if (lastAssistant && /danke|ok|gut|super|passt/.test(normalized)) {
+      return {
+        text:
+          "Gern geschehen! Wenn Sie möchten, bereiten Sie gleich eine Vorbestellungsanfrage vor – im Demo-Modus wird sie nur geprüft, nicht gespeichert. Für Verbindliches rufen Sie uns kurz an."
       };
     }
 

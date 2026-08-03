@@ -58,6 +58,11 @@ export interface ChatPreferences {
   pickup?: string;
 }
 
+export interface ChatHistoryMessage {
+  role: "user" | "assistant";
+  text: string;
+}
+
 export interface ChatResponse {
   text: string;
   suggestions?: ChatProductSuggestion[];

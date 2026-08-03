@@ -2,11 +2,19 @@ import { GoogleGenAI } from "@google/genai";
 import { getChatChoices } from "../src/data/chatChoices.js";
 import { knowledgeArticles, faqItems, occasions } from "../src/data/content.js";
 import { products } from "../src/data/products.js";
-import type { ChatPreferences, ChatResponse, PageId } from "../src/types.js";
+import type { ChatHistoryMessage, ChatPreferences, ChatResponse, PageId } from "../src/types.js";
 
 const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const GOOGLE_CLOUD_PROJECT = process.env.GOOGLE_CLOUD_PROJECT || "project-254bd332-29e4-4496-aca";
 const GOOGLE_CLOUD_LOCATION = process.env.GOOGLE_CLOUD_LOCATION || "global";
+
+// OpenAI-kompatibles LLM-Backend (PRIMÄR). Geeignet: OpenCode Go, Nous Inference, OpenRouter, DeepSeek.
+const CHAT_LLM_API_KEY = process.env.CHAT_LLM_API_KEY || "";
+const CHAT_LLM_BASE_URL = process.env.CHAT_LLM_BASE_URL || "https://opencode.ai/zen/go/v1";
+const CHAT_LLM_MODEL = process.env.CHAT_LLM_MODEL || "minimax-m2.7";
+
+const MAX_HISTORY = 10;
+
 interface ApiRequest {
   method?: string;
   headers: Record<string, string | string[] | undefined>;
@@ -53,6 +61,11 @@ DEINE PRIORITÄTEN (in dieser Reihenfolge):
 4. Wenn ein Budget bekannt ist, zeige oder empfehle keine Produkte über diesem Budget. Ein einziges, freundliches Upgrade ist erlaubt, nur mit echtem Nutzen und nur wenn die Differenz konkret ist. Nie mehrmals drängen.
 5. Dringlichkeit nur ehrlich: niedriger Website-Bestand, Wunsch für einen nahen Termin, saisonale Ware oder größere Bestellung. Niemals künstliche Knappheit oder FOMO behaupten.
 6. Bei Unsicherheit, fehlenden Daten oder Fragen außerhalb Floristik/Laden: ehrlich sagen, was du nicht sicher weißt, und freundlich zum Anruf leiten.
+
+VERLAUF:
+- Du bekommst den bisherigen Chatverlauf. Beziehe dich darauf, wenn es natürlich passt (z.B. "Wie besprochen …", "Der Strauß, den Sie sich angesehen haben …").
+- Nimm im Verlauf genannte Anlass, Budget, Stil, Farbe oder Abholzeit als gesetzt an und frage nicht erneut danach.
+- Wenn der Kunde eine klare Absicht genannt hat und dir nur noch eine entscheidende Angabe fehlt, frage genau diese eine und führe danach zu Telefon oder Vorbestellung.
 
 LOKALES:
 - Adresse: Färberstraße 1, 57258 Freudenberg.
@@ -120,6 +133,19 @@ async function getWeatherContext(question: string) {
   }
 }
 
+function sanitizeHistory(raw: unknown): ChatHistoryMessage[] {
+  if (!Array.isArray(raw)) return [];
+  const result: ChatHistoryMessage[] = [];
+  for (const entry of raw.slice(-MAX_HISTORY)) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const candidate = entry as { role?: unknown; text?: unknown };
+    if (candidate.role !== "user" && candidate.role !== "assistant") continue;
+    if (typeof candidate.text !== "string" || !candidate.text.trim()) continue;
+    result.push({ role: candidate.role, text: candidate.text.trim().slice(0, 400) });
+  }
+  return result.slice(-MAX_HISTORY);
+}
+
 function checkRateLimit(request: ApiRequest) {
   const forwardedFor = request.headers["x-forwarded-for"];
   const identifier = (Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor)?.split(",")[0]?.trim() || "unknown";
@@ -131,14 +157,58 @@ function checkRateLimit(request: ApiRequest) {
   return true;
 }
 
-function parseModelResponse(raw: string): ChatResponse {
-  const candidate = raw.trim().replace(/^```json\s*|\s*```$/g, "");
-  const parsed = JSON.parse(candidate) as {
+export function parseModelResponse(raw: string, depth = 0): ChatResponse {
+  const cleaned = raw.trim().replace(/^```json\s*|\s*```$/g, "");
+  // Reasoning-Modelle (z.B. minimax) schreiben <think>-Blöcke vor das JSON.
+  // Robuster Schnitt: erstes { bis letztes }.
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  const candidate = start >= 0 && end > start ? cleaned.slice(start, end + 1) : "";
+  type ParsedChat = {
     text?: unknown;
     suggestionIds?: unknown;
     action?: unknown;
     nextStep?: unknown;
   };
+  let parsed: ParsedChat | null = null;
+  if (candidate) {
+    try {
+      parsed = JSON.parse(candidate) as ParsedChat;
+    } catch {
+      parsed = null;
+    }
+  }
+
+  // Manche Modelle schachteln das eigentliche JSON in "text" (doppeltes JSON).
+  // Rekursiv auflösen, max. 2 Ebenen.
+  if (
+    depth < 2 &&
+    parsed &&
+    typeof parsed.text === "string" &&
+    parsed.text.trim().startsWith("{")
+  ) {
+    try {
+      const inner = JSON.parse(parsed.text.trim()) as { text?: unknown };
+      if (inner && typeof inner.text === "string") {
+        return parseModelResponse(parsed.text, depth + 1);
+      }
+    } catch {
+      // kein inneres JSON → unten normal weiterverarbeiten
+    }
+  }
+
+  // Kein gültiges JSON → den rohen Text (ohne think-Block) als Antwort nutzen,
+  // damit der Chat nie an einem Parsing-Fehler stirbt.
+  if (!parsed || typeof parsed.text !== "string" || !parsed.text.trim()) {
+    const plain = cleaned.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+    return {
+      text:
+        plain.slice(0, 1_200) ||
+        "Dazu möchte ich Ihnen lieber eine sichere Auskunft geben. Rufen Sie uns bitte kurz an.",
+      choices: []
+    };
+  }
+
   const productIds = new Set(products.map((product) => product.id));
   const suggestionIds = Array.isArray(parsed.suggestionIds)
     ? parsed.suggestionIds.filter((id): id is string => typeof id === "string" && productIds.has(id)).slice(0, 3)
@@ -165,6 +235,75 @@ function parseModelResponse(raw: string): ChatResponse {
   };
 }
 
+function buildUserTurn(question: string, preferences: ChatPreferences, weather: string) {
+  return `KUNDENFRAGE: ${question}\nBERATUNGSKONTEXT: ${JSON.stringify(preferences)}\n${weather}`;
+}
+
+async function callGemini(
+  client: GoogleGenAI,
+  question: string,
+  preferences: ChatPreferences,
+  history: ChatHistoryMessage[],
+  weather: string
+): Promise<string> {
+  const contents = [
+    ...history.map((entry) => ({
+      role: entry.role === "assistant" ? ("model" as const) : ("user" as const),
+      parts: [{ text: entry.text }]
+    })),
+    { role: "user" as const, parts: [{ text: buildUserTurn(question, preferences, weather) }] }
+  ];
+  const modelResponse = await client.models.generateContent({
+    model: MODEL,
+    contents,
+    config: {
+      systemInstruction: BOT_PROMPT,
+      temperature: 0.55,
+      maxOutputTokens: 700,
+      responseMimeType: "application/json"
+    }
+  });
+  return modelResponse.text || "";
+}
+
+async function callOpenAICompatible(
+  question: string,
+  preferences: ChatPreferences,
+  history: ChatHistoryMessage[],
+  weather: string
+): Promise<string> {
+  const messages = [
+    { role: "system", content: BOT_PROMPT },
+    ...history.map((entry) => ({ role: entry.role, content: entry.text })),
+    { role: "user", content: buildUserTurn(question, preferences, weather) }
+  ];
+  const response = await fetch(`${CHAT_LLM_BASE_URL.replace(/\/$/, "")}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${CHAT_LLM_API_KEY}`
+    },
+    body: JSON.stringify({
+      model: CHAT_LLM_MODEL,
+      messages,
+      temperature: 0.55,
+      max_tokens: 700,
+      response_format: { type: "json_object" }
+    })
+  });
+  if (!response.ok) {
+    throw new Error(`LLM fallback antwortet mit ${response.status}`);
+  }
+  const data = (await response.json()) as {
+    choices?: { message?: { content?: unknown } }[];
+  };
+  const content = data.choices?.[0]?.message?.content;
+  if (typeof content !== "string" || !content.trim()) {
+    throw new Error("LLM fallback lieferte leere Antwort");
+  }
+  return content;
+}
+
 export default async function handler(request: ApiRequest, response: ApiResponse) {
   if (request.method !== "POST") {
     return response.status(405).json({ error: "Method not allowed" });
@@ -172,43 +311,64 @@ export default async function handler(request: ApiRequest, response: ApiResponse
   if (!checkRateLimit(request)) {
     return response.status(429).json({ error: "Bitte warten Sie einen Moment, bevor Sie weiterschreiben." });
   }
+
   const serviceAccountJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-  if (!serviceAccountJson) {
+  const canUseLLM = Boolean(CHAT_LLM_API_KEY);
+  const canUseGemini = Boolean(serviceAccountJson);
+  if (!canUseLLM && !canUseGemini) {
     return response.status(503).json({ error: "Der Blumen-Chat wird gerade vorbereitet." });
   }
 
   try {
-    const body = (request.body || {}) as { question?: unknown; preferences?: unknown };
+    const body = (request.body || {}) as {
+      question?: unknown;
+      preferences?: unknown;
+      history?: unknown;
+    };
     const question = typeof body.question === "string" ? body.question.trim().slice(0, 500) : "";
     const preferences = (body.preferences || {}) as ChatPreferences;
+    const history = sanitizeHistory(body.history);
     if (!question) return response.status(400).json({ error: "Bitte schreiben Sie eine Frage." });
 
     const weather = await getWeatherContext(question);
-    let serviceAccountCredentials: Record<string, unknown>;
-    try {
-      serviceAccountCredentials = JSON.parse(serviceAccountJson) as Record<string, unknown>;
-    } catch {
-      return response.status(503).json({ error: "Der Blumen-Chat wird gerade vorbereitet." });
+    let raw = "";
+
+    // Primär: OpenAI-kompatibles LLM (OpenCode Go / Nous / DeepSeek / OpenRouter)
+    if (canUseLLM) {
+      try {
+        raw = await callOpenAICompatible(question, preferences, history, weather);
+      } catch (llmError) {
+        console.error("LLM-Chat fehlgeschlagen", llmError);
+        if (!canUseGemini) throw llmError;
+      }
     }
 
-    const client = new GoogleGenAI({
-      vertexai: true,
-      project: GOOGLE_CLOUD_PROJECT,
-      location: GOOGLE_CLOUD_LOCATION,
-      googleAuthOptions: { credentials: serviceAccountCredentials }
-    });
-    const modelResponse = await client.models.generateContent({
-      model: MODEL,
-      contents: `KUNDENFRAGE: ${question}\nBERATUNGSKONTEXT: ${JSON.stringify(preferences)}\n${weather}`,
-      config: {
-        systemInstruction: BOT_PROMPT,
-        temperature: 0.55,
-        maxOutputTokens: 480,
-        responseMimeType: "application/json"
+    // Fallback: Gemini via Vertex AI, nur wenn das primäre LLM nicht antwortet.
+    if (!raw && canUseGemini) {
+      let serviceAccountCredentials: Record<string, unknown> | null = null;
+      try {
+        serviceAccountCredentials = JSON.parse(serviceAccountJson as string) as Record<string, unknown>;
+      } catch {
+        serviceAccountCredentials = null;
       }
-    });
+      if (serviceAccountCredentials) {
+        try {
+          const client = new GoogleGenAI({
+            vertexai: true,
+            project: GOOGLE_CLOUD_PROJECT,
+            location: GOOGLE_CLOUD_LOCATION,
+            googleAuthOptions: { credentials: serviceAccountCredentials }
+          });
+          raw = await callGemini(client, question, preferences, history, weather);
+        } catch (geminiError) {
+          console.error("Gemini-Chat fehlgeschlagen", geminiError);
+          throw geminiError;
+        }
+      }
+    }
 
-    return response.status(200).json(parseModelResponse(modelResponse.text || ""));
+    if (!raw) throw new Error("Keine LLM-Antwort erhalten");
+    return response.status(200).json(parseModelResponse(raw));
   } catch (error) {
     console.error("Blatt & Blüte chat error", error);
     return response.status(502).json({

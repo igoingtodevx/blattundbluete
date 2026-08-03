@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ApiChatService, DemoChatService } from "../services/chat";
-import type { ChatChoice, ChatPreferences, ChatResponse, PageId } from "../types";
+import type { ChatChoice, ChatHistoryMessage, ChatPreferences, ChatResponse, PageId } from "../types";
 import { Icon } from "./Icons";
 
 interface ChatWidgetProps {
@@ -50,6 +50,11 @@ export function ChatWidget({ onNavigate, onProduct }: ChatWidgetProps) {
     }
   }, [messages, open, loading]);
 
+  const buildHistory = (current: Message[]): ChatHistoryMessage[] =>
+    current
+      .map((entry) => ({ role: entry.role, text: entry.text }))
+      .slice(-10);
+
   const send = async (question: string, nextPreferences = preferences) => {
     const clean = question.trim();
     if (!clean || loading) return;
@@ -65,9 +70,17 @@ export function ChatWidget({ onNavigate, onProduct }: ChatWidgetProps) {
     try {
       let response: ChatResponse;
       try {
-        response = await apiChatService.ask(clean, nextPreferences);
+        response = await apiChatService.ask(
+          clean,
+          nextPreferences,
+          buildHistory(messages)
+        );
       } catch {
-        response = await demoChatService.ask(clean, nextPreferences);
+        response = await demoChatService.ask(
+          clean,
+          nextPreferences,
+          buildHistory(messages)
+        );
       }
       setMessages((current) => [
         ...current,
