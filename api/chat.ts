@@ -159,6 +159,13 @@ function checkRateLimit(request: ApiRequest) {
 }
 
 export function parseModelResponse(raw: string, depth = 0): ChatResponse {
+  const cleanText = (value: string) =>
+    value
+      .replace(/\*\*/g, "")
+      .replace(/_/g, "")
+      .replace(/`/g, "")
+      .trim()
+      .slice(0, 1_200);
   const cleaned = raw.trim().replace(/^```json\s*|\s*```$/g, "");
   // Reasoning-Modelle (z.B. minimax) schreiben <think>-Blöcke vor das JSON.
   // Robuster Schnitt: erstes { bis letztes }.
@@ -218,7 +225,7 @@ export function parseModelResponse(raw: string, depth = 0): ChatResponse {
     const plain = cleaned.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
     return {
       text:
-        plain.slice(0, 1_200) ||
+        cleanText(plain) ||
         "Dazu möchte ich Ihnen lieber eine sichere Auskunft geben. Rufen Sie uns bitte kurz an.",
       choices: []
     };
@@ -234,9 +241,10 @@ export function parseModelResponse(raw: string, depth = 0): ChatResponse {
     : null;
 
   return {
-    text: typeof parsed.text === "string" && parsed.text.trim()
-      ? parsed.text.trim().slice(0, 1_200)
-      : "Dazu möchte ich Ihnen lieber eine sichere Auskunft geben. Rufen Sie uns bitte kurz an.",
+    text:
+      typeof parsed.text === "string" && parsed.text.trim()
+        ? cleanText(parsed.text)
+        : "Dazu möchte ich Ihnen lieber eine sichere Auskunft geben. Rufen Sie uns bitte kurz an.",
     suggestions: suggestionIds.map((id) => {
       const product = products.find((entry) => entry.id === id)!;
       const price = product.priceMax ? `${product.price}–${product.priceMax} €` : `${product.price} €`;

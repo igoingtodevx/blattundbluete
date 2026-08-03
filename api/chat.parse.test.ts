@@ -75,4 +75,16 @@ describe("parseModelResponse", () => {
 
     expect(result.text).toBe("Hallo aus dem Laden!");
   });
+
+  it("entfernt Markdown-Sterne aus dem Antworttext", () => {
+    const raw = JSON.stringify({
+      text: "Der **Zarte Gruß** ist schön, und _das_ hier auch.",
+      suggestionIds: [],
+      action: null,
+      nextStep: null
+    });
+    const result = parseModelResponse(raw);
+
+    expect(result.text).toBe("Der Zarte Gruß ist schön, und das hier auch.");
+  });
 });
