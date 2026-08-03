@@ -259,7 +259,7 @@ async function callGemini(
     config: {
       systemInstruction: BOT_PROMPT,
       temperature: 0.55,
-      maxOutputTokens: 700,
+      maxOutputTokens: 1000,
       responseMimeType: "application/json"
     }
   });
@@ -287,7 +287,7 @@ async function callOpenAICompatible(
       model: CHAT_LLM_MODEL,
       messages,
       temperature: 0.55,
-      max_tokens: 700,
+      max_tokens: 1000,
       response_format: { type: "json_object" }
     })
   });
