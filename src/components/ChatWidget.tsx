@@ -69,17 +69,18 @@ const actionList = (response: ChatResponse): ChatAction[] => {
   const all = [response.action, ...(response.actions ?? [])].filter(
     (action): action is ChatAction => Boolean(action)
   );
+  const actionKey = (a: ChatAction): string => {
+    switch (a.type) {
+      case "call":
+        return `${a.type}:${a.label}:${a.href}`;
+      case "navigate":
+        return `${a.type}:${a.label}:${a.page}`;
+      case "reserve":
+        return `${a.type}:${a.label}:${a.page}:${a.productId ?? ""}`;
+    }
+  };
   return all.filter(
-    (action, index) =>
-      all.findIndex((candidate) =>
-        candidate.type === action.type &&
-        candidate.label === action.label &&
-        (candidate.type === "call"
-          ? candidate.href === action.href
-          : candidate.type === "navigate"
-            ? candidate.page === action.page
-            : candidate.productId === action.productId)
-      ) === index
+    (action, index) => all.findIndex((candidate) => actionKey(candidate) === actionKey(action)) === index
   );
 };
 
@@ -319,9 +320,7 @@ export function ChatWidget({
                           ? preferences.budgetMax !== undefined && choice.label.includes(String(preferences.budgetMax))
                           : choice.key === "pickup"
                             ? Boolean(preferences.pickupDate)
-                            : choice.key !== "budget" &&
-                                choice.key !== "pickup" &&
-                                preferences[choice.key] === choice.value;
+                            : preferences[choice.key] === choice.value;
                       return (
                         <button
                           className={selected ? "is-selected" : ""}

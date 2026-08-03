@@ -224,7 +224,7 @@ export const extractPreferencesFromText = (
   else if (/heute/.test(text)) result.pickupDate = relativeDate(0, now);
 
   result.pickupTime = parsePickupTime(text);
-  return sanitizeCapturedPreferences(result);
+  return sanitizeCapturedPreferences({ ..._current, ...result });
 };
 
 export const mergeChatPreferences = (

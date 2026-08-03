@@ -19,7 +19,7 @@ interface SalePageProps {
   onReserve: (product: Product) => void;
 }
 
-export function SalePage({ onNavigate, onProduct, onReserve }: SalePageProps) {
+export function SalePage({ onProduct, onReserve }: SalePageProps) {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {

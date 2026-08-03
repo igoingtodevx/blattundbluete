@@ -26,11 +26,7 @@ type CategoryFilter = "all" | ProductCategory;
 type SizeFilter = "all" | BouquetSize;
 type StatusFilter = "all" | ProductStatus;
 
-export function CataloguePage({
-  onNavigate,
-  onProduct,
-  onReserve
-}: CataloguePageProps) {
+export function CataloguePage({ onProduct, onReserve }: CataloguePageProps) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<CategoryFilter>("all");
   const [size, setSize] = useState<SizeFilter>("all");
