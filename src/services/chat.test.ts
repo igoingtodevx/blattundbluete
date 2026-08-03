@@ -15,7 +15,7 @@ describe("DemoChatService", () => {
     await vi.advanceTimersByTimeAsync(520);
     const response = await responsePromise;
 
-    expect(response.text).toContain("10 bis 15 Euro");
-    expect(response.text).toContain("Wie schnell");
+    expect(response.text).toContain("aufgenommen");
+    expect(response.text).toContain("nicht live bestätigt");
   });
 });

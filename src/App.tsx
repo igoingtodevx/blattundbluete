@@ -1,13 +1,26 @@
 import { useCallback, useEffect, useState } from "react";
 import { Layout } from "./components/Layout";
 import { ProductModal } from "./components/ProductModal";
+import { ChatWidget } from "./components/ChatWidget";
 import { CataloguePage } from "./pages/CataloguePage";
 import { HomePage } from "./pages/HomePage";
 import { KnowledgePage } from "./pages/KnowledgePage";
 import { ReservationPage } from "./pages/ReservationPage";
 import { SalePage } from "./pages/SalePage";
 import { AboutPage } from "./pages/AboutPage";
-import type { PageId, Product } from "./types";
+import { products } from "./data/products";
+import {
+  buildReservationPrefill,
+  safeReadReservationPrefill,
+  safeWriteReservationPrefill
+} from "./utils/chat";
+import type {
+  CapturedPreferences,
+  ChatProductSuggestion,
+  ChatReservationPrefill,
+  PageId,
+  Product
+} from "./types";
 
 const pageToHash: Record<PageId, string> = {
   home: "#/",
@@ -24,9 +37,17 @@ const readPage = (): PageId => {
   return (entry?.[0] as PageId | undefined) ?? "home";
 };
 
+const productSuggestion = (product: Product): ChatProductSuggestion => ({
+  productId: product.id,
+  label: product.name
+});
+
 export default function App() {
   const [page, setPage] = useState<PageId>(readPage);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [chatPreferences, setChatPreferences] = useState<CapturedPreferences>({});
+  const [reservationPrefill, setReservationPrefill] =
+    useState<ChatReservationPrefill | null>(() => safeReadReservationPrefill());
 
   useEffect(() => {
     const onHashChange = () => {
@@ -49,10 +70,34 @@ export default function App() {
     window.location.hash = hash;
   }, []);
 
-  const reserveProduct = (product: Product) => {
-    sessionStorage.setItem("bb-selected-product", product.id);
-    setSelectedProduct(null);
-    navigate("reservation");
+  const startReservation = useCallback(
+    (prefill: ChatReservationPrefill) => {
+      safeWriteReservationPrefill(prefill);
+      setReservationPrefill(prefill);
+      setSelectedProduct(null);
+      navigate("reservation");
+    },
+    [navigate]
+  );
+
+  const reserveProduct = useCallback(
+    (product: Product) => {
+      const action = {
+        type: "reserve" as const,
+        label: "Vorbestellung vorbereiten",
+        page: "reservation" as const,
+        productId: product.id
+      };
+      startReservation(
+        buildReservationPrefill(chatPreferences, [productSuggestion(product)], action)
+      );
+    },
+    [chatPreferences, startReservation]
+  );
+
+  const openChatProduct = (productId: string) => {
+    const product = products.find((item) => item.id === productId);
+    if (product) setSelectedProduct(product);
   };
 
   return (
@@ -61,27 +106,41 @@ export default function App() {
         <HomePage
           onNavigate={navigate}
           onProduct={setSelectedProduct}
+          onReserve={reserveProduct}
         />
       )}
       {page === "products" && (
         <CataloguePage
           onNavigate={navigate}
           onProduct={setSelectedProduct}
+          onReserve={reserveProduct}
         />
       )}
       {page === "sale" && (
         <SalePage
           onNavigate={navigate}
           onProduct={setSelectedProduct}
+          onReserve={reserveProduct}
         />
       )}
       {page === "knowledge" && <KnowledgePage />}
       {page === "about" && <AboutPage onNavigate={navigate} />}
-      {page === "reservation" && <ReservationPage />}
+      {page === "reservation" && (
+        <ReservationPage
+          prefill={reservationPrefill}
+          onPrefillConsumed={() => setReservationPrefill(null)}
+        />
+      )}
       <ProductModal
         product={selectedProduct}
         onClose={() => setSelectedProduct(null)}
         onReserve={reserveProduct}
+      />
+      <ChatWidget
+        onNavigate={navigate}
+        onProduct={openChatProduct}
+        onStartReservation={startReservation}
+        onPreferencesChange={setChatPreferences}
       />
     </Layout>
   );

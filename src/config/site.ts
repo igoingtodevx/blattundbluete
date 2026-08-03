@@ -29,7 +29,7 @@ export const siteConfig = {
 } as const;
 
 export const phoneCommunicationText =
-  "Wir lieben unser Handwerk und können Ihnen jeden beliebigen Wunsch in der Blumenwelt erfüllen. Sprechen Sie mit unserem Anrufbeantworter und äußern Sie ihren Wunsch. Unser System verarbeitet Ihre gesprochenen Daten nur intern und übersetzt uns Ihren genauen Wunsch, damit wir Ihnen bestmöglich aushelfen können. Mögen Sie es doch lieber altmodisch? Wir auch, um ehrlich zu sein. Deshalb lassen Sie uns doch einfach kurz per Telefon quatschen! Wir beißen auch nicht, versprochen ;)";
+  "Für besondere Wünsche, aktuelle Verfügbarkeit oder eine sichere Auskunft zu Feiertagen ist ein kurzer persönlicher Anruf am zuverlässigsten.";
 
 export const integrationStatus = {
   inventory: "Demo-Bestand – keine Kassensynchronisierung aktiv",

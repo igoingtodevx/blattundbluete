@@ -1,7 +1,6 @@
 import { siteConfig } from "../config/site";
 import { products } from "../data/products";
 import type { PageId, Product } from "../types";
-import { ChatWidget } from "../components/ChatWidget";
 import { Icon } from "../components/Icons";
 import { OrganicUnderline } from "../components/OrganicUnderline";
 import { ProductCard } from "../components/ProductCard";
@@ -9,9 +8,10 @@ import { ProductCard } from "../components/ProductCard";
 interface HomePageProps {
   onNavigate: (page: PageId) => void;
   onProduct: (product: Product) => void;
+  onReserve: (product: Product) => void;
 }
 
-export function HomePage({ onNavigate, onProduct }: HomePageProps) {
+export function HomePage({ onNavigate, onProduct, onReserve }: HomePageProps) {
   const featuredProducts = [
     products[0],
     products[7],
@@ -183,10 +183,7 @@ export function HomePage({ onNavigate, onProduct }: HomePageProps) {
               product={product}
               featured={index === 0}
               onOpen={onProduct}
-              onReserve={(item) => {
-                sessionStorage.setItem("bb-selected-product", item.id);
-                onNavigate("reservation");
-              }}
+              onReserve={onReserve}
             />
           ))}
         </div>
@@ -247,13 +244,6 @@ export function HomePage({ onNavigate, onProduct }: HomePageProps) {
         </div>
       </section>
 
-      <ChatWidget
-        onNavigate={onNavigate}
-        onProduct={(productId) => {
-          const product = products.find((item) => item.id === productId);
-          if (product) onProduct(product);
-        }}
-      />
     </>
   );
 }

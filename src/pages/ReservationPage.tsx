@@ -1,5 +1,7 @@
 import {
+  useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent
 } from "react";
@@ -12,7 +14,11 @@ import {
 } from "../config/site";
 import { getProductById, products } from "../data/products";
 import { DemoReservationService } from "../services/reservations";
-import type { ReservationDraft } from "../types";
+import {
+  clearReservationPrefill,
+  safeReadReservationPrefill
+} from "../utils/chat";
+import type { ChatReservationPrefill, ReservationDraft } from "../types";
 import { getPriceLabel } from "../utils/money";
 
 type Errors = Partial<Record<keyof ReservationDraft, string>>;
@@ -33,26 +39,68 @@ const contactIsValid = (value: string) => {
   return email.test(normalized) || phone.test(normalized);
 };
 
-export function ReservationPage() {
-  const initialSelected =
-    sessionStorage.getItem("bb-selected-product") ||
-    products.find((product) => product.stock > 0)?.id ||
-    "";
-  const [draft, setDraft] = useState<ReservationDraft>({
+interface ReservationPageProps {
+  prefill?: ChatReservationPrefill | null;
+  onPrefillConsumed?: () => void;
+}
+
+const createInitialDraft = (prefill?: ChatReservationPrefill | null): ReservationDraft => {
+  const stored = prefill ?? safeReadReservationPrefill();
+  return {
     mode: "preorder",
-    productId: initialSelected,
+    productId:
+      stored?.productId ?? products.find((product) => product.stock > 0)?.id ?? "",
     quantity: 1,
-    pickupDate: "",
-    pickupTime: "",
+    pickupDate: stored?.pickupDate ?? "",
+    pickupTime: stored?.pickupTime ?? "",
     name: "",
     contact: "",
-    occasion: "",
-    message: ""
-  });
+    occasion: stored?.occasion ?? "",
+    recipient: stored?.recipient,
+    budgetMax: stored?.budgetMax,
+    style: stored?.style,
+    color: stored?.color,
+    specialWishes: stored?.specialWishes,
+    message: stored?.message ?? ""
+  };
+};
+
+export function ReservationPage({
+  prefill,
+  onPrefillConsumed
+}: ReservationPageProps) {
+  const [visiblePrefill, setVisiblePrefill] = useState<ChatReservationPrefill | null>(
+    () => prefill ?? safeReadReservationPrefill()
+  );
+  const appliedPrefillId = useRef<string | null>(null);
+  const [draft, setDraft] = useState<ReservationDraft>(() =>
+    createInitialDraft(prefill)
+  );
   const [errors, setErrors] = useState<Errors>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [success, setSuccess] = useState("");
+
+  useEffect(() => {
+    if (!prefill || appliedPrefillId.current === prefill.id) return;
+    appliedPrefillId.current = prefill.id;
+    setVisiblePrefill(prefill);
+    setDraft((current) => ({
+      ...current,
+      productId: prefill.productId ?? current.productId,
+      occasion: prefill.occasion ?? current.occasion,
+      recipient: prefill.recipient,
+      budgetMax: prefill.budgetMax,
+      style: prefill.style,
+      color: prefill.color,
+      specialWishes: prefill.specialWishes,
+      pickupDate: prefill.pickupDate ?? current.pickupDate,
+      pickupTime: prefill.pickupTime ?? current.pickupTime,
+      message: prefill.message.slice(0, 500)
+    }));
+    clearReservationPrefill();
+    onPrefillConsumed?.();
+  }, [onPrefillConsumed, prefill]);
 
   const selectedProduct = useMemo(
     () => getProductById(draft.productId),
@@ -164,6 +212,17 @@ export function ReservationPage() {
           </div>
         </li>
       </ol>
+
+      {visiblePrefill && (
+        <section className="chat-prefill-banner" aria-label="Übernommene Chat-Beratung">
+          <div className="chat-prefill-icon"><Icon name="chat" /></div>
+          <div>
+            <span className="chat-prefill-kicker">Aus der Blumenberatung übernommen</span>
+            <h2>Ihr Wunsch ist schon notiert.</h2>
+            <p>{visiblePrefill.message}</p>
+          </div>
+        </section>
+      )}
 
       <form className="reservation-form" onSubmit={submit} noValidate>
         <section className="request-type-panel" aria-labelledby="request-type">
