@@ -66,4 +66,13 @@ describe("parseModelResponse", () => {
       "little-sun"
     ]);
   });
+
+  it("entpackt doppelt-escaped verschachteltes JSON (Modell-Fall)", () => {
+    const innerWithLiteralEscapes =
+      '{\\n  \\"text\\": \\"Hallo aus dem Laden!\\", \\"suggestionIds\\": [], \\"action\\": null, \\"nextStep\\": null}';
+    const raw = JSON.stringify({ text: innerWithLiteralEscapes });
+    const result = parseModelResponse(raw);
+
+    expect(result.text).toBe("Hallo aus dem Laden!");
+  });
 });
