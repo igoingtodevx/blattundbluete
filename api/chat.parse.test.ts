@@ -48,4 +48,22 @@ describe("parseModelResponse", () => {
     expect(result.suggestions?.length).toBe(1);
     expect(result.suggestions?.[0]?.productId).toBe("soft-greeting");
   });
+
+  it("entpackt langes verschachteltes JSON mit Umlauten (Live-Fall)", () => {
+    const inner = `{\n  "text": "Wie schön, dass Sie an Ihre Mutter denken! Wir haben einige wunderbare kleine Sträuße im Angebot. Zum Beispiel der „Zarter Gruß“ – zurückhaltend und elegant in Weiß, Rosé und Salbeigrün. Beide sind um die 13 bis 15 Euro.",\n  "suggestionIds": ["soft-greeting", "calm-morning", "little-sun"],\n  "action": null,\n  "nextStep": "occasion"\n}`;
+    const raw = JSON.stringify({
+      text: inner,
+      suggestionIds: [],
+      action: null,
+      nextStep: null
+    });
+    const result = parseModelResponse(raw);
+
+    expect(result.text).toContain("Mutter denken");
+    expect(result.suggestions?.map((entry) => entry.productId)).toEqual([
+      "soft-greeting",
+      "calm-morning",
+      "little-sun"
+    ]);
+  });
 });

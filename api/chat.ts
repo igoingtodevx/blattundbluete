@@ -288,7 +288,9 @@ async function callOpenAICompatible(
       messages,
       temperature: 0.55,
       max_tokens: 1000,
-      response_format: { type: "json_object" }
+      response_format: { type: "json_object" },
+      // Reasoning-Modelle (deepseek-v4-*, minimax-*) ohne Think-Block → schnelle, saubere JSON-Antwort
+      chat_template_kwargs: { thinking: false }
     })
   });
   if (!response.ok) {
