@@ -26,26 +26,44 @@ interface ChatWidgetProps {
 }
 
 const quickQuestions = [
-  "Morgen für meine Mutter, 35 €, rosa, gegen elf Uhr",
-  "Ich suche einen kleinen Strauß bis 20 €",
-  "Wie viele Rosen sind noch da?"
+  "Ein Strauß für meine Mutter — sie wird 60",
+  "Ich möchte mich bei jemandem bedanken",
+  "Etwas für jemanden der gerade traurig ist"
 ];
 
 const apiChatService = new ApiChatService();
 const demoChatService = new DemoChatService();
 
-const initialMessage: ChatMessage = {
-  id: "welcome",
-  role: "assistant",
-  text:
-    "Schön, dass Sie da sind. Nennen Sie mir einfach Anlass, Farbwelt oder Budget – ich mache daraus einen passenden nächsten Schritt.",
-  response: {
-    text:
-      "Schön, dass Sie da sind. Nennen Sie mir einfach Anlass, Farbwelt oder Budget – ich mache daraus einen passenden nächsten Schritt.",
-    mode: "fallback",
-    inventoryMode: "demo"
+function getInitialMessage(): ChatMessage {
+  const hour = new Date().toLocaleString("de-DE", {
+    timeZone: "Europe/Berlin",
+    hour: "numeric",
+    hour12: false
+  });
+  const h = parseInt(hour, 10);
+
+  let text: string;
+  if (h >= 6 && h < 11) {
+    text = "Guten Morgen. Für wen suchst du etwas — und zu welchem Anlass? Ich helfe dir, das Richtige zu finden.";
+  } else if (h >= 11 && h < 14) {
+    text = "Hallo. Beschreib mir kurz, für wen der Strauß ist — ich schaue, was gerade passt.";
+  } else if (h >= 14 && h < 19) {
+    text = "Schön, dass du da bist. Für wen suchst du etwas — und was ist der Anlass?";
+  } else {
+    text = "Hallo. Planst du etwas für die nächsten Tage? Sag mir für wen — ich finde etwas Passendes.";
   }
-};
+
+  return {
+    id: "welcome",
+    role: "assistant",
+    text,
+    response: {
+      text,
+      mode: "fallback",
+      inventoryMode: "demo"
+    }
+  };
+}
 
 const messageId = (prefix: string) =>
   `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -104,7 +122,7 @@ export function ChatWidget({
     stored?.preferences ?? {}
   );
   const [messages, setMessages] = useState<ChatMessage[]>(
-    stored?.messages?.length ? stored.messages : [initialMessage]
+    stored?.messages?.length ? stored.messages : [getInitialMessage()]
   );
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -168,7 +186,7 @@ export function ChatWidget({
       ]);
     } catch {
       setError(
-        "Die Demo-Antwort konnte nicht geladen werden. Bitte versuchen Sie es erneut oder rufen Sie kurz an."
+        "Kurze Unterbrechung — versuch es nochmal oder ruf uns kurz an."
       );
     } finally {
       setLoading(false);
@@ -234,7 +252,7 @@ export function ChatWidget({
         <section
           className="chat-panel"
           id="chat-panel"
-          aria-label="Blatt & Blüte Beratung"
+          aria-label="Blatt & Blüte Blumenberatung"
         >
           <header>
             <div className="chat-avatar">
@@ -272,8 +290,8 @@ export function ChatWidget({
                 )}
                 <p>{message.text}</p>
                 {message.response?.suggestions && message.response.suggestions.length > 0 && (
-                  <div className="chat-product-suggestions" aria-label="Passende Demo-Beispiele">
-                    <span className="chat-section-label">Das könnte passen</span>
+                  <div className="chat-product-suggestions" aria-label="Meine Empfehlungen">
+                    <span className="chat-section-label">Das würde ich empfehlen</span>
                     {message.response.suggestions.map((suggestion) => (
                       <button
                         type="button"
@@ -343,7 +361,7 @@ export function ChatWidget({
                 <span />
                 <span />
                 <span />
-                <em>Ihre Wünsche werden sortiert …</em>
+                <em>Einen Moment — ich schaue, was passt …</em>
               </div>
             )}
             {error && (
@@ -375,7 +393,7 @@ export function ChatWidget({
               id="chat-input"
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              placeholder="z. B. morgen für meine Mutter …"
+              placeholder="z. B. für meine Mutter zum Geburtstag …"
               maxLength={320}
               disabled={loading}
             />
