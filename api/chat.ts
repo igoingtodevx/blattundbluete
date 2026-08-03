@@ -407,6 +407,7 @@ async function generateWithProviders(
       return { raw: await callBedrock(question, preferences, history, context, config, systemPrompt), mode: "live" as const };
     } catch (error) {
       lastError = error instanceof ProviderError ? error : new ProviderError("bedrock", undefined, "unknown");
+      console.error("[chat-debug] bedrock attempt failed", JSON.stringify(lastError));
     }
   }
   if (config.openAiApiKey) {
