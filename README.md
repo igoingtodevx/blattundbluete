@@ -1,133 +1,68 @@
 # Blatt & Blüte Freudenberg
 
-Eine mobile-first React-/TypeScript-Website als funktionsfähiges Grundgerüst für den lokalen Blumenladen Blatt & Blüte in Freudenberg.
+A React/Vite storefront prototype for a florist: product catalogue, example sale items, flower knowledge, about content, reservation prefill flow, and a conversational bouquet adviser.
 
-**Produktion:** https://blatt-und-bluete-freudenberg.vercel.app
+## Public deployment
 
-## Enthalten
+The following URL was checked anonymously during this audit and returned HTTP 200:
 
-- sechs Hauptbereiche: Start, Blumen & Sträuße, Restposten, Blumenwissen, Über Uns und Vorbestellen,
-- exakt 20 Demo-Produkte: 16 Sträuße und 4 Holzdeko-Artikel,
-- Suche, Filter, Sortierung, Bestandsstatus und Produktdetails,
-- Gemini-gestützter Blumen-Chat mit Website-Wissen, Produktvorschlägen, Auswahlchips und lokalem Fallback,
-- Restposten-Logik ab 16:30 Uhr in `Europe/Berlin` mit exakt 50 %,
-- FAQ und Pflegewissen,
-- validierte Vorbestellungs-/Reservierungsanfrage mit 2,90 € Pfandhinweis,
-- Demo-Adapter für Lager und Kassenzettel,
-- konfigurierbare Geschäfts-, Google- und Social-Media-Links,
-- responsive Navigation, Fokuszustände und reduzierte Bewegung.
-- redaktionelle Über-uns-Seite mit austauschbarer Silhouetten-Platzhaltergrafik.
+- <https://blatt-und-bluete-freudenberg.vercel.app/>
 
-## Lokal starten
+The page is public, but the chat still depends on server-side provider configuration and the reservation flow is explicitly demo-only.
+
+## Evidence-backed stack
+
+- React 19 and TypeScript
+- Vite 8 with a hash-routed single-page frontend
+- Vercel static hosting configuration and a TypeScript server function at `api/chat.ts`
+- Vitest tests and ESLint
+- `chess.js` is not used here; the conversational logic is custom TypeScript with local product/content data
+
+## Implemented scope
+
+- Frontend pages for home, catalogue, sale items, flower knowledge, about, and reservation preparation.
+- Local product catalogue with product modals and chat-driven suggestions.
+- Chat rules for preference extraction, opening-hours answers, example-only inventory handling, action validation, and an in-memory rate limit.
+- `api/chat.ts` provider chain: Amazon Bedrock Converse first when `AWS_BEARER_TOKEN_BEDROCK` is present, then an OpenAI-compatible `/chat/completions` endpoint when `CHAT_LLM_API_KEY` is present.
+- Unit tests for chat parsing/rules, product data, inventory helpers, reservations, and related utilities.
+
+## Status
+
+This is a publicly deployed storefront/demo prototype. The frontend and chat handler are implemented, but real shop operations are not connected: inventory and reservations remain demo services, and the catalogue is explicitly example data rather than a live stock feed.
+
+## Local setup
+
+The repository uses pnpm:
 
 ```bash
 pnpm install
 pnpm dev
-```
-
-Prüfungen:
-
-```bash
-pnpm lint
-pnpm test
 pnpm build
+pnpm test
+pnpm lint
 ```
 
-## Veröffentlichen
+`pnpm dev` starts Vite for the frontend. Because `api/chat.ts` is a Vercel-style server function, use a Vercel-compatible local runtime (for example `vercel dev`) or a deployed environment when exercising `/api/chat`; plain Vite alone does not provide that endpoint.
 
-Der lokale Ordner ist mit dem Vercel-Projekt `blatt-und-bluete-freudenberg` verknüpft. Ein späteres Produktions-Update kann nach den Prüfungen so veröffentlicht werden:
+## Chat configuration
 
-```bash
-pnpm dlx vercel@58.4.0 deploy --prod
-```
+Keep credentials server-side. The provider variables read by `api/chat.ts` are:
 
-## Konfiguration
+| Variable | Purpose |
+| --- | --- |
+| `AWS_BEARER_TOKEN_BEDROCK` | Enables the preferred Bedrock Converse path |
+| `AWS_BEDROCK_REGION` | Bedrock region; code default is `eu-central-1` |
+| `AWS_BEDROCK_MODEL` | Bedrock model; code default is `eu.anthropic.claude-sonnet-4-6` |
+| `CHAT_LLM_API_KEY` | Enables the OpenAI-compatible fallback |
+| `CHAT_LLM_BASE_URL` | Optional fallback base URL; set it to your provider's `/v1`-style base |
+| `CHAT_LLM_MODEL` | Optional fallback model; code default is `gpt-4o-mini` |
+| `CHAT_PROVIDER_TIMEOUT_MS` | Optional provider timeout, bounded by the handler |
 
-`.env.example` zeigt alle vorgesehenen Werte. Variablen mit `VITE_` sind öffentlich im Browser sichtbar und dürfen deshalb keine geheimen Zugangsdaten enthalten.
+The checked-in example environment file also contains a Gemini-related variable, but the current `api/chat.ts` implementation does not call Gemini. Treat that entry as unused until the code changes.
 
-Die vorhandenen Standardwerte für Adresse, Telefon, Google, Instagram und Facebook wurden aus den bereitgestellten Links bzw. aktuellen öffentlichen Unternehmenseinträgen abgeleitet. Öffnungszeiten und Kontaktdaten bleiben zentral in `src/config/site.ts` austauschbar.
+## Limitations
 
-### Chat-LLM aktivieren
-
-Der Chat nutzt ein OpenAI-kompatibles LLM-Backend (primär) mit Gemini via Vertex AI als optionalem Fallback. Ohne Zugangsdaten arbeitet der Client mit einem lokalen Demo-Fallback.
-
-**Primär (OpenCode Go / Nous / DeepSeek / OpenRouter — jeder `/chat/completions`-Endpoint):**
-
-1. In den Vercel-Projektvariablen `CHAT_LLM_API_KEY` mit einem gültigen API-Key anlegen. Nie mit `VITE_` beginnen und niemals in Git einchecken.
-2. Optional `CHAT_LLM_BASE_URL` (Standard `https://opencode.ai/zen/go/v1`) und `CHAT_LLM_MODEL` (Standard `minimax-m2.7`) setzen.
-3. Neu nach Produktion deployen.
-
-Der Chat ist mehrstufig (Multi-Turn): Der Client schickt die letzten 10 Nachrichten mit, damit die Beratung Anlass, Budget und Vorlieben über mehrere Turns behält. Beratungs-Choices (Anlass, Budget, Stil, Farbe, Abholung) werden als Kontext mitgeschickt.
-
-**Fallback (Gemini via Vertex AI Express Mode), nur wenn das primäre LLM nicht antwortet:**
-
-1. Im Google-Cloud-Projekt `project-254bd332-29e4-4496-aca` für das Dienstkonto `Blatt&Bluete` einen privaten JSON-Schlüssel erstellen und dem Dienstkonto die Rolle **Vertex AI User** geben.
-2. In den Vercel-Projektvariablen `GOOGLE_SERVICE_ACCOUNT_JSON` mit dem kompletten Inhalt dieser JSON-Datei anlegen. Nie mit `VITE_` beginnen und niemals in Git einchecken.
-3. Neu nach Produktion deployen.
-
-Google Cloud schützt Vertex AI zusätzlich mit der Ausgabenobergrenze **„Blatt & Blüte Bot – 10 € Monatslimit“**. Die Obergrenze ist auf 9 € gesetzt, damit aufgrund möglicher Abrechnungsverzögerungen das gewünschte 10-€-Limit nicht überschritten wird. Sie pausiert Vertex AI für dieses Projekt nach Erreichen der Grenze.
-
-## Demo-Grenzen
-
-- Produkte, Preise und Bestände sind Demo-Daten.
-- Eine Formularübermittlung wird geprüft, aber nicht gespeichert oder versendet.
-- Es gibt keine Online-Zahlung.
-- Ohne `GOOGLE_SERVICE_ACCOUNT_JSON` arbeitet der Chat mit einem lokalen Fallback. Mit dem Dienstkonto nutzt er Gemini und kennt die hinterlegten Website-Fakten, jedoch keine echte POS-Synchronisierung.
-- Google-Bewertungen werden nur extern verlinkt.
-- Eine Sprachverarbeitung ist nicht angeschlossen; es gibt keine Aufnahmefunktion.
-- Eine Kassen-/POS-Synchronisierung ist vorbereitet, aber nicht live.
-
-## POS- und Lagerintegration
-
-### Erwartetes Belegformat
-
-```json
-{
-  "receiptId": "receipt-2026-0001",
-  "type": "sale",
-  "createdAt": "2026-07-31T15:30:00.000Z",
-  "lines": [
-    { "sku": "BB-BQ-S-001", "quantity": 1 }
-  ]
-}
-```
-
-`type` akzeptiert `sale` und `return`. Jeder Artikel wird über seine eindeutige SKU zugeordnet. Verkäufe ziehen positive Ganzzahlen ab; Retouren addieren sie. Der Demo-Service:
-
-- verhindert negative Bestände,
-- verarbeitet dieselbe `receiptId` nur einmal,
-- stoppt bei unbekannten SKUs oder ungültigen Mengen,
-- verändert keine Werte, wenn ein Beleg insgesamt nicht validiert werden kann.
-
-Für den Echtbetrieb werden mindestens benötigt:
-
-1. dokumentiertes Beleg-/Webhook-Format des Kassensystems,
-2. sichere serverseitige Signaturprüfung,
-3. persistente Tabelle für Belege, Positionen und Idempotenzschlüssel,
-4. persistente Bestände mit Zeitstempel und Audit-Protokoll,
-5. Fehlerwarteschlange für nicht zuordenbare SKUs,
-6. verbindliche Regeln für Stornos und Retouren.
-
-Vorgesehene serverseitige Variablen:
-
-- `POS_PROVIDER`
-- `POS_WEBHOOK_SECRET`
-- `RESERVATION_WEBHOOK_URL`
-- `GOOGLE_PLACE_ID`
-
-Diese Variablen dürfen nie mit `VITE_` beginnen, weil sie sonst in den Client-Build gelangen könnten.
-
-## Anfrage-/CRM-Anschluss
-
-`DemoReservationService` ist der austauschbare Einstiegspunkt. Für den Echtbetrieb muss er durch einen serverseitigen Endpoint ersetzt werden, der:
-
-- alle Eingaben erneut validiert,
-- Rate Limits und Missbrauchsschutz nutzt,
-- Einwilligung und Datenschutzhinweise abbildet,
-- nur notwendige personenbezogene Daten speichert,
-- eine Bestätigung durch den Laden ermöglicht,
-- Fehler protokolliert, ohne sensible Daten in Browser-Logs auszugeben.
-
-## Brand-Kit
-
-Das einzige verwendete Designsystem ist in [BRAND-KIT.md](./BRAND-KIT.md) dokumentiert.
+- Product stock is `example-only`; the demo inventory service is in-memory and is not a POS integration.
+- Reservation submission validates input locally and returns `demo-accepted`; it does not save or send a reservation to the shop.
+- Chat availability, latency, cost, and output quality depend on the configured provider. Bedrock failure can fall back to the OpenAI-compatible provider only when both are configured.
+- The repository does not document or guarantee a live inventory, payment, delivery, or webhook integration.
